@@ -1,6 +1,17 @@
-# Detección de Cumplimiento de Normas de Seguridad en Obras de Construcción con YOLOv8
+# Detección de Cumplimiento de Normas de Seguridad en Obras de Construcción (YOLO)
 
-Proyecto desarrollado para la **Pregunta 3** del Examen Parcial de Redes Neuronales y Aprendizaje Profundo.
+Proyecto desarrollado para la **Pregunta 3** del EP de Redes Neuronales y Aprendizaje Profundo.
+
+**Curso:** Redes Neuronales y Aprendizaje Profundo  
+**Docente:** Ph.D. Aldo Camargo  
+**Universidad:** Universidad Nacional de Ingeniería — Maestría en Inteligencia Artificial  
+
+**Integrantes:**
+
+- Victor Fernando Montes Jaramillo — victor.montes.j@uni.pe
+- Alex Celestino León Pacheco — alex.leon.p@uni.pe
+- Edwin Jhon Minchán Ramos — edwin.minchan.r@uni.pe
+- Marco Antonio Nina Aguilar — marco.nina.a@uni.pe
 
 El objetivo es entrenar y evaluar modelos YOLOv8 para detectar trabajadores y elementos de Equipo de Protección Personal (EPP), principalmente **casco** y **chaleco**, y construir un verificador de cumplimiento basado en reglas que marque trabajadores conformes y no conformes por fotograma.
 
