@@ -1,0 +1,75 @@
+# Taxonomía final usada por el proyecto.
+# Los nombres se normalizan a minúsculas y se reemplazan espacios/guiones por '_'.
+
+final_classes:
+  - person
+  - helmet
+  - no_helmet
+  - vest
+  - no_vest
+
+aliases:
+  person:
+    - person
+    - worker
+    - pedestrian
+    - human
+    - body
+
+  helmet:
+    - helmet
+    - hardhat
+    - hard_hat
+    - safety_helmet
+    - safetyhelmet
+    - head_with_helmet
+    - with_helmet
+    - hat        # SHWD: "hat" representa casco.
+    - helmet_on
+
+  no_helmet:
+    - no_helmet
+    - nohelmet
+    - no-hardhat
+    - no_hardhat
+    - without_helmet
+    - head
+    - bare_head
+    - person_without_helmet
+    - no-helmet
+    - no_helmet_head
+    - normal_head
+
+  vest:
+    - vest
+    - safety_vest
+    - reflective_vest
+    - high_visibility_vest
+    - high_vis_vest
+    - hi_vis
+    - hi_vis_vest
+
+  no_vest:
+    - no_vest
+    - no-vest
+    - without_vest
+    - no_safety_vest
+    - no_reflective_vest
+
+ignore_classes:
+  - glove
+  - gloves
+  - no_gloves
+  - no-gloves
+  - boot
+  - boots
+  - no_boots
+  - no-boots
+  - goggles
+  - no_goggles
+  - no-goggles
+  - glasses
+  - mask
+  - machinery
+  - vehicle
+  - cone

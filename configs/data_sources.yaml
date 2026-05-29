@@ -1,0 +1,43 @@
+# Fuentes de datos usadas en la Pregunta 3.
+#
+# Safety Helmet y PPE Detection se descargan desde Roboflow usando:
+#   ROBOFLOW_API_KEY
+#
+# SHWD se descarga desde Google Drive usando el archivo Pascal VOC real.
+# Luego se convierte a formato YOLO mediante src/data/convert_shwd.py.
+
+roboflow:
+  safety_helmet:
+    enabled: true
+    role: main_train
+    workspace: safety-helmet-kfkub
+    project: safety-helmet-ifjeb
+    version: 2
+    format: yolov8
+    out_dir: data/raw/safety_helmet
+
+  ppe_detection:
+    enabled: true
+    role: auxiliary_ppe
+    workspace: testcasque
+    project: ppe-detection-qlq3d
+    version: 1
+    format: yolov8
+    out_dir: data/raw/ppe_detection
+
+shwd:
+  enabled: true
+  role: no_helmet_negative
+
+  # Google Drive oficial/derivado del repositorio SHWD.
+  # El archivo debe contener la estructura Pascal VOC:
+  #   VOC2028/
+  #     Annotations/
+  #     ImageSets/
+  #     JPEGImages/
+  gdrive_file_id: 1qWm7rrwvjAWs1slymbrLaCf7Q-wnGLEX
+  gdrive_url: https://drive.usercontent.google.com/download?id=1qWm7rrwvjAWs1slymbrLaCf7Q-wnGLEX&export=download
+
+  out_dir: data/raw/shwd
+  archive_path: data/raw/shwd_dataset_download
+  converted_dir: data/raw/shwd_yolo

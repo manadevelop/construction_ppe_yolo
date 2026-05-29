@@ -1,0 +1,17 @@
+experiment_name: yolov8s_main
+model: yolov8s.pt
+data: data/ppe_yolo/data.yaml
+project: outputs
+name: yolov8s_main
+epochs: 60
+imgsz: 640
+batch: 16
+patience: 20
+device: auto
+workers: 2
+seed: 42
+optimizer: auto
+mosaic: 1.0
+close_mosaic: 10
+cache: false
+plots: true

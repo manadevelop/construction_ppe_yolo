@@ -1,0 +1,18 @@
+experiment_name: ablation_yolov8n_no_mosaic
+model: yolov8n.pt
+data: data/ppe_yolo/data.yaml
+project: outputs
+name: ablation_yolov8n_no_mosaic
+# Protocolo completo opcional de ablación sin mosaic.
+epochs: 30
+imgsz: 640
+batch: 16
+patience: 12
+device: auto
+workers: 2
+seed: 42
+optimizer: auto
+mosaic: 0.0
+close_mosaic: 0
+cache: false
+plots: true

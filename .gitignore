@@ -1,0 +1,37 @@
+# Datos y artefactos generados
+data/
+outputs/
+results/
+runs/
+weights/
+logs/
+wandb/
+mlruns/
+
+# Modelos y exportaciones pesadas
+*.pt
+*.pth
+*.onnx
+*.engine
+*.ckpt
+*.tflite
+
+# Python / notebooks
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# Sistema/editor
+.DS_Store
+__MACOSX/
+.vscode/
+.idea/
+
+# Credenciales
+.env
+.roboflow
+kaggle.json
+roboflow.json

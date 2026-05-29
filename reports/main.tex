@@ -1,0 +1,228 @@
+\documentclass{article}
+\usepackage[final]{neurips_2026}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot]{babel}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{multirow}
+\usepackage{float}
+
+\title{Detección de Cumplimiento de Normas de Seguridad en Obras de Construcción mediante YOLOv8}
+
+\author{%
+  Victor Fernando Montes Jaramillo \\
+  Universidad Nacional de Ingeniería \\
+  Maestría en Inteligencia Artificial \\
+  \texttt{victor.montes.j@uni.pe}
+  \And
+  Alex Celestino León Pacheco \\
+  Universidad Nacional de Ingeniería \\
+  Maestría en Inteligencia Artificial \\
+  \texttt{alex.leon.p@uni.pe}
+  \And
+  Edwin Jhon Minchán Ramos \\
+  Universidad Nacional de Ingeniería \\
+  Maestría en Inteligencia Artificial \\
+  \texttt{edwin.minchan.r@uni.pe}
+  \AND
+  Marco Antonio Nina Aguilar \\
+  Universidad Nacional de Ingeniería \\
+  Maestría en Inteligencia Artificial \\
+  \texttt{marco.nina.a@uni.pe}
+}
+
+\begin{document}
+\maketitle
+
+\begin{center}
+  \small
+  \textbf{Curso:} Redes Neuronales y Aprendizaje Profundo \quad
+  \textbf{Docente:} Ph.D. Aldo Camargo \\
+  Universidad Nacional de Ingeniería --- Maestría en Inteligencia Artificial
+\end{center}
+\vspace{0.5em}
+
+\begin{abstract}
+La supervisión visual del cumplimiento de Equipos de Protección Personal (EPP) en obras de construcción es una tarea relevante para reducir riesgos laborales, pero presenta retos de detección en escenas abiertas: oclusión, trabajadores lejanos, objetos pequeños, iluminación variable y desbalance entre trabajadores conformes y no conformes. En este trabajo se implementa un pipeline reproducible basado en YOLOv8 para detectar cinco clases: persona, casco, sin casco, chaleco y sin chaleco. Se integran tres fuentes de datos: Safety Helmet Detection como conjunto principal, PPE Detection como fuente complementaria y SHWD como fuente de negativos explícitos sin casco. Se comparan YOLOv8n baseline, YOLOv8s principal y una ablación sin aumento mosaic. El mejor resultado global se obtuvo con YOLOv8n baseline, con mAP@0.5 de 0.6859 y mAP@0.5:0.95 de 0.4299. El análisis por dificultad muestra una degradación progresiva al pasar de baja a alta oclusión, con mAP@0.5:0.95 de 0.6047, 0.5256 y 0.3762, respectivamente. Finalmente, se implementa un verificador de cumplimiento basado en reglas que asocia detecciones de casco y chaleco a trabajadores o pseudo-trabajadores, generando una tasa de cumplimiento por fotograma.
+\end{abstract}
+
+\section{Motivación}
+En obras de construcción, el uso de casco, chaleco y otros EPP reduce la probabilidad de lesiones ante caídas de objetos, golpes, maquinaria en movimiento y baja visibilidad. La inspección manual es necesaria, pero puede ser costosa, intermitente y subjetiva cuando se aplica a múltiples frentes de trabajo. Un sistema de visión por computadora puede apoyar la supervisión preventiva, proporcionando alertas o resúmenes de cumplimiento para revisión humana.
+
+La tarea no se limita a detectar objetos aislados. En escenarios reales los trabajadores pueden aparecer parcialmente ocultos por maquinaria, andamios o materiales; los cascos pueden ocupar pocos píxeles; las condiciones de iluminación varían; y las clases de incumplimiento suelen estar subrepresentadas. Por ello, el sistema debe combinar detección robusta con un módulo posterior de verificación de cumplimiento que traduzca detecciones en una decisión por trabajador o fotograma.
+
+\section{Trabajos relacionados}
+\paragraph{Detección de objetos en tiempo real.}
+YOLO introdujo una formulación de detección de objetos de una sola etapa, optimizando directamente cajas y clases desde una imagen completa~[1]. Las variantes modernas de YOLO mantienen el énfasis en eficiencia y buen desempeño en escenarios de detección multiclase.
+
+\paragraph{Detección de EPP.}
+La detección de cascos y chalecos se ha estudiado como una aplicación de seguridad ocupacional. Los conjuntos Safety Helmet Detection, PPE Detection y SHWD permiten entrenar modelos capaces de identificar tanto presencia como ausencia de EPP. SHWD es particularmente importante porque contiene negativos explícitos de personas sin casco.
+
+\paragraph{Aumentos de datos y mosaic.}
+El aumento mosaic combina varias imágenes en una sola muestra de entrenamiento, incrementando diversidad contextual y exposición a objetos pequeños. Sin embargo, también puede introducir composiciones artificiales que no siempre mejoran la evaluación final. Por ello se incluye una ablación con mosaic desactivado.
+
+\paragraph{Verificación basada en reglas.}
+La detección de objetos produce cajas independientes, pero el cumplimiento requiere razonar sobre relaciones espaciales: un casco debe corresponder a la región superior de un trabajador, y un chaleco al torso. Por tanto, se implementa un módulo de posprocesamiento que asocia EPP a personas o pseudo-trabajadores.
+
+\section{Metodología}
+\subsection{Datasets}
+Se utilizaron tres fuentes. Safety Helmet Detection se usó como conjunto principal. PPE Detection amplió la variabilidad de EPP, incorporando clases relacionadas con casco y chaleco. SHWD se usó como fuente de ejemplos negativos explícitos de sin casco. En este proyecto, SHWD se descargó desde Google Drive en formato Pascal VOC/XML y se convirtió a YOLO con un script propio.
+
+\subsection{Taxonomía unificada}
+Las clases originales se normalizaron a cinco categorías finales:
+\begin{equation}
+\{\texttt{person},\texttt{helmet},\texttt{no\_helmet},\texttt{vest},\texttt{no\_vest}\}.
+\end{equation}
+Clases no centrales para la pregunta, como guantes, botas o gafas, fueron ignoradas durante la fusión. El mapeo se documenta en \texttt{configs/class\_mapping.yaml}. La conversión de SHWD mapea \texttt{hat} a \texttt{helmet} y \texttt{person} del dataset original a \texttt{no\_helmet}, debido a la semántica propia de SHWD.
+
+\subsection{Modelos y entrenamiento}
+Se entrenaron tres configuraciones: YOLOv8n baseline, YOLOv8s principal y una ablación YOLOv8n sin mosaic. La resolución de entrada fue $640\times640$. El baseline usó 40 épocas y mosaic activo; el modelo principal usó 60 épocas; y la ablación reportada usó 5 épocas con mosaic desactivado debido a restricciones de recursos de Colab. Se conserva una configuración opcional de 30 épocas para repetir la ablación completa.
+
+\subsection{Verificador de cumplimiento}
+El verificador recibe detecciones por fotograma. Cuando existen cajas de \texttt{person}, define una región superior para casco y una región de torso para chaleco; luego asocia detecciones de EPP usando centro dentro de región o intersección. Si no hay cajas de persona, utiliza un modo fallback donde detecciones de \texttt{helmet} y \texttt{no\_helmet} se tratan como pseudo-trabajadores. La salida por fotograma incluye número de trabajadores, conformes, no conformes y tasa de cumplimiento.
+
+\section{Experimentos y resultados}
+\subsection{Configuración experimental}
+El pipeline se ejecuta con:
+\begin{verbatim}
+bash run_all.sh
+\end{verbatim}
+El repositorio incluye \texttt{requirements.txt}, scripts de descarga, fusión de datasets, entrenamiento, evaluación, análisis de oclusión y demo de cumplimiento.
+
+\subsection{Comparación cuantitativa}
+La Tabla~\ref{tab:main_results} resume los resultados sobre el split de prueba del dataset unificado.
+
+\begin{table}[H]
+\centering
+\caption{Comparación de modelos sobre el conjunto de prueba.}
+\label{tab:main_results}
+\small
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Experimento} & \textbf{mAP@0.5} & \textbf{mAP@0.5:0.95} & \textbf{Precisión} & \textbf{Recall} \\
+\midrule
+YOLOv8n baseline & \textbf{0.6859} & \textbf{0.4299} & \textbf{0.8926} & \textbf{0.6558} \\
+YOLOv8s principal & 0.5548 & 0.3142 & 0.7423 & 0.5457 \\
+YOLOv8n sin mosaic & 0.6429 & 0.3879 & 0.8608 & 0.5781 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+El baseline YOLOv8n obtuvo el mejor desempeño global. Aunque YOLOv8s tiene mayor capacidad, en esta configuración no superó al modelo pequeño, posiblemente por sensibilidad al desbalance entre fuentes, mayor riesgo de sobreajuste y heterogeneidad de anotaciones. La ablación sin mosaic redujo el rendimiento frente al baseline, sugiriendo que mosaic ayudó a mejorar generalización en este conjunto.
+
+\subsection{Desglose por clase}
+La Tabla~\ref{tab:per_class} presenta el mAP@0.5:0.95 por clase para el baseline.
+
+\begin{table}[H]
+\centering
+\caption{Desglose por clase para YOLOv8n baseline.}
+\label{tab:per_class}
+\small
+\begin{tabular}{lc}
+\toprule
+\textbf{Clase} & \textbf{mAP@0.5:0.95} \\
+\midrule
+person & 0.0047 \\
+helmet & 0.6149 \\
+no\_helmet & 0.4712 \\
+vest & \textbf{0.7393} \\
+no\_vest & 0.3196 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+El desempeño de \texttt{person} es muy bajo porque las fuentes disponibles se enfocan principalmente en regiones de cabeza/casco o EPP, no necesariamente en cuerpos completos. En cambio, \texttt{helmet} y \texttt{vest} presentan mejores valores, consistentes con la mayor representación y claridad visual de estas clases.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\linewidth]{outputs/yolov8n_baseline/results.png}
+\caption{Curvas de entrenamiento y validación del modelo YOLOv8n baseline.}
+\label{fig:training_curves}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.70\linewidth]{outputs/yolov8n_baseline/confusion_matrix_normalized.png}
+\caption{Matriz de confusión normalizada del baseline.}
+\label{fig:confusion}
+\end{figure}
+
+\subsection{Robustez ante oclusión y dificultad}
+El conjunto de prueba se particionó de forma semiautomática en baja, media y alta dificultad, usando tamaño relativo de cajas y número de objetos por imagen. La Tabla~\ref{tab:occlusion} muestra los resultados.
+
+\begin{table}[H]
+\centering
+\caption{Robustez por nivel de oclusión/dificultad.}
+\label{tab:occlusion}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Grupo} & \textbf{N imágenes} & \textbf{mAP@0.5} & \textbf{mAP@0.5:0.95} \\
+\midrule
+Baja & 475 & \textbf{0.8204} & \textbf{0.6047} \\
+Media & 420 & 0.7241 & 0.5256 \\
+Alta & 839 & 0.6751 & 0.3762 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Existe una caída clara entre baja y alta dificultad. La caída de mAP@0.5:0.95 es de aproximadamente 0.2285, lo que confirma que oclusión, objetos pequeños y escenas más densas reducen la calidad de detección.
+
+\subsection{Demo de cumplimiento}
+El verificador se ejecutó sobre 12 fotogramas. Se detectaron 18 trabajadores o pseudo-trabajadores, con cumplimiento promedio de 0.3333. Estos valores no deben interpretarse como estadística operacional, sino como demostración funcional del módulo de reglas.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.78\linewidth]{results/compliance_demo/frame_000.jpg}
+\caption{Ejemplo de salida del verificador de cumplimiento basado en reglas.}
+\label{fig:compliance_demo}
+\end{figure}
+
+\section{Discusión y limitaciones}
+\paragraph{Desbalance y heterogeneidad de fuentes.}
+Las tres fuentes no comparten exactamente la misma taxonomía ni el mismo protocolo de anotación. Esto afecta especialmente a \texttt{person} y \texttt{no\_vest}. La fusión de datasets incrementa cobertura, pero también introduce ruido semántico.
+
+\paragraph{Objetos pequeños y oclusión.}
+La degradación por dificultad confirma que el modelo detecta peor en escenas densas o con trabajadores lejanos. En aplicaciones reales, sería conveniente incorporar más ejemplos de alta oclusión y entrenar con recortes de alta resolución.
+
+\paragraph{Ablación sin mosaic.}
+La ablación rápida sin mosaic obtuvo menor rendimiento que el baseline. Sin embargo, al haberse ejecutado con 5 épocas por restricciones de recursos, la comparación debe interpretarse como evidencia preliminar, no como conclusión definitiva sobre mosaic.
+
+\paragraph{Verificador basado en reglas.}
+Las reglas espaciales son simples y explicables, pero dependen de la calidad de las cajas. Si el detector falla o no predice \texttt{person}, el sistema usa pseudo-trabajadores, lo cual permite demo funcional pero limita la interpretación por trabajador real.
+
+\section{Implicaciones éticas}
+Un sistema automático de supervisión de EPP puede mejorar la prevención, pero también puede generar riesgos. Un falso negativo implica no detectar una violación real, exponiendo al trabajador a peligro. Un falso positivo puede marcar injustamente a alguien que sí cumple, generando presión laboral, reportes incorrectos o sanciones indebidas. Por ello, el sistema no debe operar como mecanismo disciplinario autónomo.
+
+También existen preocupaciones de privacidad. La captura continua de imágenes en una obra puede convertirse en vigilancia laboral si no se establecen límites claros de finalidad, retención y acceso. Deben aplicarse principios de minimización de datos, anonimización cuando sea posible y revisión humana antes de cualquier acción correctiva. Además, los sesgos del dataset pueden afectar el desempeño en obras con uniformes, países, cámaras, iluminación o condiciones visuales diferentes a las fuentes de entrenamiento.
+
+\section{Conclusiones}
+Se implementó un pipeline reproducible para detección de cumplimiento de EPP en construcción. El mejor modelo fue YOLOv8n baseline, con mAP@0.5 de 0.6859 y mAP@0.5:0.95 de 0.4299. La ablación sin mosaic redujo el desempeño y el modelo YOLOv8s no superó al baseline bajo esta configuración. El análisis de oclusión mostró una caída marcada en alta dificultad, y el verificador de cumplimiento permitió generar una tasa de cumplimiento por fotograma. Los resultados son útiles como prototipo académico, pero requieren más datos balanceados, mejor anotación de personas completas y validación en escenarios reales antes de un despliegue operativo.
+
+\begin{ack}
+Los autores agradecen al Ph.D. Aldo Camargo por el diseño del enunciado y la guía durante el desarrollo del proyecto. El entrenamiento se realizó usando recursos GPU de Google Colab. El código fuente está disponible en \url{https://github.com/manadevelop/construction_ppe_yolo}.
+\end{ack}
+
+\section*{Referencias}
+{\small
+[1] Redmon, J., Divvala, S., Girshick, R., \& Farhadi, A. (2016). You Only Look Once: Unified, Real-Time Object Detection. \textit{CVPR}.\\
+[2] Bochkovskiy, A., Wang, C.Y., \& Liao, H.Y.M. (2020). YOLOv4: Optimal Speed and Accuracy of Object Detection. \textit{arXiv:2004.10934}.\\
+[3] Wang, C.Y., Bochkovskiy, A., \& Liao, H.Y.M. (2023). YOLOv7: Trainable bag-of-freebies sets new state-of-the-art for real-time object detectors. \textit{CVPR}.\\
+[4] Roboflow Universe. Safety Helmet Detection Dataset. \url{https://universe.roboflow.com/safety-helmet-kfkub/safety-helmet-ifjeb}.\\
+[5] Roboflow Universe. PPE Detection Dataset. \url{https://universe.roboflow.com/testcasque/ppe-detection-qlq3d}.\\
+[6] NJVisionPower. Safety Helmet Wearing Dataset. \url{https://github.com/njvisionpower/Safety-Helmet-Wearing-Dataset}.\\
+[7] Buolamwini, J., \& Gebru, T. (2018). Gender Shades: Intersectional Accuracy Disparities in Commercial Gender Classification. \textit{FAT*}.\\
+}
+
+\end{document}
